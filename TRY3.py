@@ -12,24 +12,26 @@ import time
 import signal
 import numpy as np
 
-addr = "USB0::0x2A8D::0x039B::CN60531137::0::INSTR" #EDUX1052G
+addr = "USB0::0x0957::0x17BC::MY52400362::0::INSTR" #EDUX1052G
 #addr = "USB0::0x0957::0x17BC::MY52400362::0::INSTR" #MSO-X 4154A
+#addr = "USB0::0x0957::0x17A4::MY51138829::0::INSTR" #DSO334A
+
 #addr =
 
 # Global variables.
 # ---------------------------------------------------------
-input_channel = "CHANnel1"
+input_channel = "CHANnel2"
 #input_channel = "CHANnel2"
 setup_file_name = "setup.scp"
 screen_image_file_name = "screen_image.png"
 waveform_data_file_name = "waveform_data.csv"
 #wfm_fmt = "BYTE"
 wfm_fmt = "WORD"
-TriggerSrc = "CHANnel1"
-TIMebaseSCALe = '5e-3' #EDUX1052G min: 5E-9; 4154A min: 5E-10
-CHANnel1SCALe = '5' # 4154A 1mV - 5V; 
-OFFSet = '12.5'
-WAVeformPOINts = '5E4' # raw mode maximum # of point = timeScal * 1E10
+TriggerSrc = "CHANnel2"
+TIMebaseSCALe = '7e-3' #EDUX1052G min: 5E-9; 4154A min: 5E-10
+CHANnel1SCALe = '0.05' # 4154A 1mV - 5V; 
+OFFSet = '0'
+WAVeformPOINts = '5E4' # raw mode maximum # of point = timeScal * 1E10 // 5e-4 timeScale & 5e4 pts for MSO
 # 4154A 1MHz input 5e-6 timebase 500 numpoints GOOD
 
 # =========================================================
@@ -71,7 +73,7 @@ def capture():
     qresult = do_query_string(":TRIGger:EDGE:SOURce?")
     print(f"Trigger edge source: {qresult}")
 
-    InfiniiVision.write(":TRIGger:EDGE:LEVel 10")
+    InfiniiVision.write(":TRIGger:EDGE:LEVel 0.2")
     qresult = do_query_string(":TRIGger:EDGE:LEVel?")
     print(f"Trigger edge level: {qresult}")
     
@@ -218,9 +220,9 @@ def analyze():
     # Get the waveform data.
   
     
-    logging_arrayAppending(100, x_increment, x_origin, y_increment, y_origin, y_reference)
+    logging_arrayAppending(50, x_increment, x_origin, y_increment, y_origin, y_reference)
     #logging_csvSegement(10)
-    #logging_full(10, x_increment, x_origin, y_increment, y_origin, y_reference)
+    #logging_full(5, x_increment, x_origin, y_increment, y_origin, y_reference)
     
     print(f"Waveform format {wfm_fmt} data written to {date_stamp}.csv.")
 
@@ -313,16 +315,8 @@ def logging_full(iteration, x_increment, x_origin, y_increment, y_origin, y_refe
         data_bytes_length = len(data_bytes)
         print(f"Byte count: {data_bytes_length}")
         
-        if wfm_fmt == "BYTE":
-            block_points = data_bytes_length
-        elif wfm_fmt == "WORD":
-            block_points = data_bytes_length / 2
-            
-        #Unpack or split into list of data values.
-        if wfm_fmt == "BYTE":
-            values = struct.unpack("%dB" % block_points, data_bytes)
-        elif wfm_fmt == "WORD":
-            values = struct.unpack("%dH" % block_points, data_bytes)
+        values = unpackBinary(wfm_fmt, data_bytes_length,data_bytes)
+        
         #print(f"Number of data values: {len(values)}")
         
         for i in range(0, len(values) - 1):
