@@ -1,5 +1,6 @@
 
 import csv
+import time
 import math
 import numpy as np
 import matplotlib.pyplot as plt
@@ -20,8 +21,8 @@ fit_cycle = 1             # Sampling length of line fitting (phi detection & ref
 fit_plot_cycle = 1
 
 phi_interval =1000
-offset_interval = 1000
-amp_interval = 1000
+offset_interval = 500
+amp_interval = 500
 
 # ========================================================
 def getEntireWaveform (filename):
@@ -37,7 +38,6 @@ def getEntireWaveform (filename):
             ys.append(float(y))
     return(xs, ys)
 
-def getPk2Pk (xs, ys):                                      # Not using
 
     temp_ts = []
     temp_vs = []
@@ -167,7 +167,7 @@ def fitOffset (xs, y_interp, amp, freq, phi, offset_interval, fitting_shift):
     start = xs[int(10 * fitting_shift)]
     end = xs[int(10 * (fitting_shift + fit_cycle))]
     x_interp = np.linspace(start, end, int(20 * fit_cycle))
-    offset_range = np.linspace(-0.1, 0.1, offset_interval)
+    offset_range = np.linspace(-0.05, 0.05, offset_interval)
     a = []
     for i in offset_range:
         fit = 0
@@ -183,7 +183,7 @@ def fitAmp (xs, y_interp, amp, freq, phi, offset, amp_interval, fitting_shift):
     start = xs[int(10 * fitting_shift)]
     end = xs[int(10 * (fitting_shift + fit_cycle))]
     x_interp = np.linspace(start, end, int(20 * fit_cycle))
-    amp_range = np.linspace(-0.1, 0.1, amp_interval)
+    amp_range = np.linspace(-0.05, 0.05, amp_interval)
     a = []
     for i in amp_range:
         fit = 0
@@ -200,7 +200,7 @@ def fitAmp (xs, y_interp, amp, freq, phi, offset, amp_interval, fitting_shift):
 # MAIN
 # =================================================================
 
-aquisition_iteration = 2
+aquisition_iteration = 1
 aquisition_numPts = 2000
 
 # =================================================================
@@ -212,6 +212,7 @@ xs,ys = getEntireWaveform(filename)
 
 result_amp = []
 result_phi = []
+result_off = []
 result_fit = []
 
 for iteration in range(0, aquisition_iteration):
@@ -291,14 +292,42 @@ for iteration in range(0, aquisition_iteration):
 
         result_amp.append(amp_init)
         result_phi.append(phi)
+        result_off.append(offset_init)
         result_fit.append(amp_fit)
         
     
-    fig, ax = plt.subplots(3,1, figsize = (15,8))
+    fig, ax = plt.subplots(4,1, figsize = (15,8))
     ax[0].plot(xs_window[0:len(result_amp)], result_amp)
     ax[1].plot(xs_window[0:len(result_phi)], result_phi)
-    ax[2].plot(xs_window[0:len(result_fit)], result_fit)
-
+    ax[2].plot(xs_window[0:len(result_off)], result_off)
+    ax[3].plot(xs_window[0:len(result_fit)], result_fit)
 
     plt.show()
     plt.pause(0.01)
+    
+    # =============================================================================
+    # Create unique file name with date/time tag
+    # =============================================================================
+
+    time_stamp = time.localtime()
+    year = time_stamp[0]
+    month = time_stamp[1]
+    day = time_stamp[2]
+    hour = time_stamp[3]
+    minute = time_stamp[4]
+    second = time_stamp[5]
+    date_stamp = '{:d}'.format(year) + '-' + '{:0>2d}'.format(month) + '-' + \
+                '{:0>2d}'.format(day) + '_' + '{:0>2d}'.format(hour) + '-' + \
+                '{:0>2d}'.format(minute) + '-' + '{:0>2d}'.format(second)
+    
+    filename = f"{date_stamp}_full.csv"
+    f = open(filename, "w")
+    for i in range (len(result_amp)):
+        f.write(f"{xs_window[i]:E}, {result_amp[i]:f}, {result_phi[i],:f}, {result_fit[i]:f}\n")
+    f.close
+
+    filename = f"{date_stamp}_thumb.csv"
+    f = open(filename, "w")
+    for i in range (0, len(result_amp), 100):
+        f.write(f"{xs_window[i]:E}, {result_amp[i]:f}, {result_phi[i],:f}, {result_fit[i]:f}\n")
+    f.close
