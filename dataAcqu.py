@@ -12,12 +12,15 @@ import time
 import signal
 import numpy as np
 
-addr = "USB0::0x2A8D::0x039B::CN60531137::0::INSTR" #EDUX1052G
-#addr = "USB0::0x0957::0x17BC::MY52400362::0::INSTR" #MSO-X 4154A
+#addr = "USB0::0x0957::0x17BC::MY52400362::0::INSTR" #EDUX1052G
+addr = "USB0::0x0957::0x17BC::MY52400362::0::INSTR" #MSO-X 4154A
+#addr = "USB0::0x0957::0x17A4::MY51138829::0::INSTR" #DSO334A
+
 #addr =
 
 # Global variables.
 # ---------------------------------------------------------
+iteration = 20
 input_channel = "CHANnel1"
 #input_channel = "CHANnel2"
 setup_file_name = "setup.scp"
@@ -25,11 +28,12 @@ screen_image_file_name = "screen_image.png"
 waveform_data_file_name = "waveform_data.csv"
 #wfm_fmt = "BYTE"
 wfm_fmt = "WORD"
-TriggerSrc = "CHANnel1"
-TIMebaseSCALe = '5e-3' #EDUX1052G min: 5E-9; 4154A min: 5E-10
-CHANnel1SCALe = '5' # 4154A 1mV - 5V; 
-OFFSet = '12.5'
-WAVeformPOINts = '5E4' # raw mode maximum # of point = timeScal * 1E10
+TriggerLvl = "0.05"
+TriggerSrc = "CHANnel2"
+TIMebaseSCALe = '2e-2' #EDUX1052G min: 5E-9; 4154A min: 5E-10
+CHANnel1SCALe = '0.05' # 4154A 1mV - 5V; 
+OFFSet = '0.05'
+WAVeformPOINts = '4E5' # raw mode maximum # of point = timeScal * 1E10 // 5e-4 timeScale & 5e4 pts for MSO
 # 4154A 1MHz input 5e-6 timebase 500 numpoints GOOD
 
 # =========================================================
@@ -71,7 +75,7 @@ def capture():
     qresult = do_query_string(":TRIGger:EDGE:SOURce?")
     print(f"Trigger edge source: {qresult}")
 
-    InfiniiVision.write(":TRIGger:EDGE:LEVel 10")
+    InfiniiVision.write(f":TRIGger:EDGE:LEVel {TriggerLvl}")
     qresult = do_query_string(":TRIGger:EDGE:LEVel?")
     print(f"Trigger edge level: {qresult}")
     
@@ -121,19 +125,20 @@ def capture():
     #print(f"Setup bytes restored: {len(setup_bytes)}")
     
     # Capture an acquisition using :DIGitize.
-    InfiniiVision.write(f":DIGitize {input_channel}")
+    # InfiniiVision.write(f":DIGitize {input_channel}")
     
     # Make measurements.
     # --------------------------------------------------------
-    InfiniiVision.write(f":MEASure:SOURce {input_channel}")
-    qresult = do_query_string(":MEASure:SOURce?")
-    print(f"Measure source: {qresult}")
-    InfiniiVision.write(":MEASure:FREQuency")
-    qresult = do_query_string(":MEASure:FREQuency?")
-    print(f"Measured frequency on {input_channel}: {qresult}")
-    InfiniiVision.write(":MEASure:VAMPlitude")
-    qresult = do_query_string(":MEASure:VAMPlitude?")
-    print(f"Measured vertical amplitude on {input_channel}: {qresult}")
+    # InfiniiVision.write(f":MEASure:SOURce {input_channel}")
+    # qresult = do_query_string(":MEASure:SOURce?")
+    # print(f"Measure source: {qresult}")
+    # InfiniiVision.write(":MEASure:FREQuency")
+    # qresult = do_query_string(":MEASure:FREQuency?")
+    # print(f"Measured frequency on {input_channel}: {qresult}")
+    # InfiniiVision.write(":MEASure:VAMPlitude")
+    # qresult = do_query_string(":MEASure:VAMPlitude?")
+    # print(f"Measured vertical amplitude on {input_channel}: {qresult}")
+    
     # Download the screen image.
     # --------------------------------------------------------
     InfiniiVision.write(":HARDcopy:INKSaver OFF")
@@ -217,10 +222,10 @@ def analyze():
     
     # Get the waveform data.
   
-    
-    logging_arrayAppending(100, x_increment, x_origin, y_increment, y_origin, y_reference)
+    print("==========START==========")
+    logging_arrayAppending(iteration, x_increment, x_origin, y_increment, y_origin, y_reference)
     #logging_csvSegement(10)
-    #logging_full(10, x_increment, x_origin, y_increment, y_origin, y_reference)
+    #logging_full(5, x_increment, x_origin, y_increment, y_origin, y_reference)
     
     print(f"Waveform format {wfm_fmt} data written to {date_stamp}.csv.")
 
@@ -241,10 +246,12 @@ def logging_arrayAppending(iteration, x_increment, x_origin, y_increment, y_orig
     for i in range (0, iteration):
         
         t = np.append(t, time.perf_counter())
+        InfiniiVision.write(f":DIGitize {input_channel}") #TODO
         data_bytes = np.array(do_query_ieee_block(":WAVeform:DATA?"))
         a = np.append(a, data_bytes)
+        print(time.perf_counter())
     
-    # time.sleep(2)
+    time.sleep(2)
     print("Saving data to CSV")   
     print(f"length of array {len(a)}")
     
@@ -264,7 +271,7 @@ def logging_arrayAppending(iteration, x_increment, x_origin, y_increment, y_orig
         #print(f"Number of data values: {len(values)}")
         #print(start_time)
         
-        for i in range(0, len(values)):
+        for i in range(0, len(values)):     #CHANGED "-1"
             time_val = start_time + x_origin + (i * x_increment)
             voltage = ((values[i] - y_reference) * y_increment) + y_origin
             f.write(f"{time_val:E}, {voltage:f}\n")
@@ -313,16 +320,8 @@ def logging_full(iteration, x_increment, x_origin, y_increment, y_origin, y_refe
         data_bytes_length = len(data_bytes)
         print(f"Byte count: {data_bytes_length}")
         
-        if wfm_fmt == "BYTE":
-            block_points = data_bytes_length
-        elif wfm_fmt == "WORD":
-            block_points = data_bytes_length / 2
-            
-        #Unpack or split into list of data values.
-        if wfm_fmt == "BYTE":
-            values = struct.unpack("%dB" % block_points, data_bytes)
-        elif wfm_fmt == "WORD":
-            values = struct.unpack("%dH" % block_points, data_bytes)
+        values = unpackBinary(wfm_fmt, data_bytes_length,data_bytes)
+        
         #print(f"Number of data values: {len(values)}")
         
         for i in range(0, len(values) - 1):
