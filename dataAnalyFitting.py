@@ -8,10 +8,11 @@ from scipy.interpolate import interp1d
 
 # TODO limit the size of xs,ys & tpp,vpp
 
-filename = "test1.csv"
+filename = "3.csv"
+# filename = "2023-11-20_14-01-55.csv"
 
 global pts
-pts = 10
+pts = 20                    ##!!!!!
 
 freq_cycle = 0.5            # Sampling length of intitial freq detection
 offset_cycle = 1            # Sampling length of intial offset detection
@@ -20,7 +21,7 @@ fit_cycle = 1             # Sampling length of line fitting (phi detection & ref
 
 fit_plot_cycle = 1
 
-phi_interval =1000
+phi_interval =100
 offset_interval = 500
 amp_interval = 500
 
@@ -167,7 +168,7 @@ def fitOffset (xs, y_interp, amp, freq, phi, offset_interval, fitting_shift):
     start = xs[int(10 * fitting_shift)]
     end = xs[int(10 * (fitting_shift + fit_cycle))]
     x_interp = np.linspace(start, end, int(20 * fit_cycle))
-    offset_range = np.linspace(-0.05, 0.05, offset_interval)
+    offset_range = np.linspace(-0.1, 0.1, offset_interval)
     a = []
     for i in offset_range:
         fit = 0
@@ -200,8 +201,10 @@ def fitAmp (xs, y_interp, amp, freq, phi, offset, amp_interval, fitting_shift):
 # MAIN
 # =================================================================
 
-aquisition_iteration = 1
-aquisition_numPts = 2000
+aquisition_iteration = 1                    ##!!!!!
+start = 20000
+end = 21000
+aquisition_numPts = end - start                   ##!!!!!
 
 # =================================================================
 # Get data
@@ -222,17 +225,22 @@ for iteration in range(0, aquisition_iteration):
     
     xs_window = []
     ys_window = []
-    for i in range (int(aquisition_numPts * iteration), aquisition_numPts * (iteration + 1)-1):     #double check with new aqusistion
+    # for i in range (int(aquisition_numPts * iteration), aquisition_numPts * (iteration + 1)-1):     #double check with new aqusistion
+    for i in range (start, end):     #double check with new aqusistion
+
         xs_window.append(xs[i])
         ys_window.append(ys[i])
 
+    # x_interp = np.linspace(min(xs_window), max(xs_window), aquisition_numPts * 10)
     x_interp = np.linspace(min(xs_window), max(xs_window), aquisition_numPts * 10)
+
     y_cubic = interp1d(xs_window, ys_window, kind= "cubic")
     # y_quad = interp1d(xs_window, ys_window, kind= "quadratic")
 
     # tpp, vpp, wave = getPk2Pk(xs_window, ys_window)
     x_top, y_top = getInterpMin(x_interp, y_cubic(x_interp))
     x_bot, y_bot = getInterpMax(x_interp, y_cubic(x_interp))
+    print(len(x_top),len(x_bot))
 
     # ==================================================================
     # Get initial parameters
@@ -240,6 +248,7 @@ for iteration in range(0, aquisition_iteration):
 
     amp_init = abs(y_top[0] - y_bot[0])/2
     freq_init = getFreq(xs_window, freq_cycle, 0)
+    freq_init = 100000
     offset_init = getOffset(ys_window, offset_cycle, 0)
     
     print(amp_init, freq_init, offset_init)
@@ -255,18 +264,18 @@ for iteration in range(0, aquisition_iteration):
         phi, phi_fit = fitPhi(x_interp, y_cubic, amp_init, freq_init, offset_init, phi_interval, fitting_shift)
         # print(phi, phi_fit)
 
-        offset_init, offset_fit = fitOffset (x_interp, y_cubic, amp_init, freq_init, phi, offset_interval, fitting_shift)
-        # print(offset_init, offset_fit)
+        # offset_init, offset_fit = fitOffset (x_interp, y_cubic, amp_init, freq_init, phi, offset_interval, fitting_shift)
+        # # print(offset_init, offset_fit)
 
-        amp_init, amp_fit = fitAmp (x_interp, y_cubic, amp_init, freq_init, phi, offset_init, amp_interval, fitting_shift)
-        # print(amp_init, amp_fit)
+        # amp_init, amp_fit = fitAmp (x_interp, y_cubic, amp_init, freq_init, phi, offset_init, amp_interval, fitting_shift)
+        # # print(amp_init, amp_fit)
 
 
         # print(phi, amp_init, offset_init, amp_fit)
 
-        # # ==================================================================
-        # # Plot the rolling fitting curve
-        # # ==================================================================
+        # ==================================================================
+        # Plot the rolling fitting curve
+        # ==================================================================
         # xs_ref = np.linspace(xs_window[fitting_shift], xs_window[int(pts * fit_plot_cycle + fitting_shift)],int(fit_plot_cycle *100))
         # ref = []
         # ref = amp_init * np.sin(2 * math.pi * freq_init * xs_ref + phi) + offset_init
@@ -285,49 +294,64 @@ for iteration in range(0, aquisition_iteration):
         # plt.grid()
         # plt.show()
         # plt.pause(0.01)
-        # plt.close('all')
+        # # plt.close('all')
 
-        fitting_shift = fitting_shift +1
+        # ==================================================================
+        fitting_shift = fitting_shift + 20
         print(fitting_shift, iteration)
 
-        result_amp.append(amp_init)
+        # result_amp.append(amp_init)
         result_phi.append(phi)
-        result_off.append(offset_init)
-        result_fit.append(amp_fit)
+        # result_off.append(offset_init)
+        result_fit.append(phi_fit)
         
-    
-    fig, ax = plt.subplots(4,1, figsize = (15,8))
-    ax[0].plot(xs_window[0:len(result_amp)], result_amp)
-    ax[1].plot(xs_window[0:len(result_phi)], result_phi)
-    ax[2].plot(xs_window[0:len(result_off)], result_off)
-    ax[3].plot(xs_window[0:len(result_fit)], result_fit)
 
+    # ==================================================================
+    # Plot the results
+    # ==================================================================
+  
+    fig, ax = plt.subplots(4,1, figsize = (15,8))
+    range = np.linspace(xs_window[0], xs_window[-1], len(result_phi))
+    ax[0].plot(xs_window[0:len(result_amp)], result_amp)
+    ax[1].plot(range, result_phi)
+    ax[2].plot(xs_window[0:len(result_off)], result_off)
+    ax[3].plot(range, result_fit)
+    
+    ax[0].set_title('amp')
+    ax[1].set_title('phi')
+    ax[2].set_title('off')
+    ax[3].set_title('fit')
+    
+    ax[0].grid()
+    ax[1].grid()
+    ax[2].grid()
+    
     plt.show()
     plt.pause(0.01)
     
-    # =============================================================================
-    # Create unique file name with date/time tag
-    # =============================================================================
+    # # =============================================================================
+    # # Create unique file name with date/time tag
+    # # =============================================================================
 
-    time_stamp = time.localtime()
-    year = time_stamp[0]
-    month = time_stamp[1]
-    day = time_stamp[2]
-    hour = time_stamp[3]
-    minute = time_stamp[4]
-    second = time_stamp[5]
-    date_stamp = '{:d}'.format(year) + '-' + '{:0>2d}'.format(month) + '-' + \
-                '{:0>2d}'.format(day) + '_' + '{:0>2d}'.format(hour) + '-' + \
-                '{:0>2d}'.format(minute) + '-' + '{:0>2d}'.format(second)
+    # time_stamp = time.localtime()
+    # year = time_stamp[0]
+    # month = time_stamp[1]
+    # day = time_stamp[2]
+    # hour = time_stamp[3]
+    # minute = time_stamp[4]
+    # second = time_stamp[5]
+    # date_stamp = '{:d}'.format(year) + '-' + '{:0>2d}'.format(month) + '-' + \
+    #             '{:0>2d}'.format(day) + '_' + '{:0>2d}'.format(hour) + '-' + \
+    #             '{:0>2d}'.format(minute) + '-' + '{:0>2d}'.format(second)
     
-    filename = f"{date_stamp}_full.csv"
-    f = open(filename, "w")
-    for i in range (len(result_amp)):
-        f.write(f"{xs_window[i]:E}, {result_amp[i]:f}, {result_phi[i],:f}, {result_fit[i]:f}\n")
-    f.close
+    # filename = f"{date_stamp}_full.csv"
+    # f = open(filename, "w")
+    # for i in range (len(result_amp)):
+    #     f.write(f"{xs_window[i]:E}, {result_amp[i]:f}, {result_phi[i],:f}, {result_fit[i]:f}\n")
+    # f.close
 
-    filename = f"{date_stamp}_thumb.csv"
-    f = open(filename, "w")
-    for i in range (0, len(result_amp), 100):
-        f.write(f"{xs_window[i]:E}, {result_amp[i]:f}, {result_phi[i],:f}, {result_fit[i]:f}\n")
-    f.close
+    # filename = f"{date_stamp}_thumb.csv"
+    # f = open(filename, "w")
+    # for i in range (0, len(result_amp), 100):
+    #     f.write(f"{xs_window[i]:E}, {result_amp[i]:f}, {result_phi[i],:f}, {result_fit[i]:f}\n")
+    # f.close
